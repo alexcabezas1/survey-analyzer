@@ -16,15 +16,19 @@ Usa el argumento -f para proveer el archivo con los resultados de la encuesta.
 python3 app.py -f resources/encuesta.csv 
 </code>
 <br>
+<br>
 
 Usa el argumento -l para ver una lista de las preguntas y sus posibles respuestas (detectadas de la encuesta). Por cada pregunta y respuesta tendrás un identificador que lo puedes usar para formar los grupos que quieres analizar.
 <br>
 <code>
 python3 app.py -f resources/encuesta.csv -l
 </code>
+<br>
 Verás algo como esto:
-!Ejemplo del argumento -l](static/argument-list-example.PNG "Lista de preguntas y respuestas posibles detectadas")
-
+<br>
+![Ejemplo del argumento -l](./static/argument-list-example.PNG "Lista de preguntas y respuestas posibles detectadas")
+<br>
+<br>
 
 Usa el argumento -g para suministrar los grupos de preguntas y respuestas que quieres analizar. Puedes proveer multiples grupos separandolos con un espacio.
 <br>
@@ -37,6 +41,8 @@ También puedes suministrar un archivo con los grupos de preguntas y respuestas.
 <code>
 python3 app.py -g @args.txt -v -f resources/encuesta.csv
 </code>
+<br>
+<br>
 
 Usa el argumento -h para obtener una ayuda rápida de la herramienta.
 <br>
