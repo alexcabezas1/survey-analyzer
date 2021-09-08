@@ -90,8 +90,8 @@ def groups_definition_parser(definition):
         yield line.split(",")
 
 
-def dummy_per_answer(answers, groups, questions, questions_with_answers, verbose=False):
-    dummy = {}
+def groups_per_observation(answers, groups, questions, questions_with_answers, verbose=False):
+    observation_grps = []
 
     answer_groups = []
     for i, value in enumerate(answers):
@@ -104,21 +104,16 @@ def dummy_per_answer(answers, groups, questions, questions_with_answers, verbose
             if verbose:
                 print(qa_id, questions[i], answer)
     
-    for grp_limit in groups:
-        count = 0
-        tmp_dummy = {}
-        for grp in grp_limit:
-            if grp in answer_groups:
-                count += 1
-                tmp_dummy[grp] = 1
-        if count == len(grp_limit):
-            dummy.update(tmp_dummy)
+    for i, grp in enumerate(groups):
+        is_matched = all([e in answer_groups for e in grp])
+        if is_matched:
+            observation_grps.append(i)
 
     if verbose:
         print(answers)
         print(">>", answer_groups)
-        print(dummy)
-    return dummy
+        print(observation_grps)
+    return observation_grps
 
 
 def explode_groups_def(group_def):
@@ -168,60 +163,72 @@ def main(opts):
         ]
         groups = list(groups_definition_parser(['p2:r1,p3:r2,p9:r1', 'p2:r1,p3:r2,p9:r4']))
         print(
-            dummy_per_answer(test, groups, questions, questions_with_answers, True))
+            groups_per_observation(test, groups, questions, questions_with_answers, True))
     
     if opts.list:
         show_questions_answers_catalog(questions_with_answers)
         return
 
-    # [
-    #     "p2:r1,p3:r1,p4:r5",
-    #     "p2:r1,p3:r1,p4:r3",
-    #     "p2:r1,p3:r2,p9:r1"
-    # ]
-
     groups_def = opts.groups
-    expanded_groups_def = set(explode_groups_def(groups_def))
-    groups = list(groups_definition_parser(expanded_groups_def))
+    expanded_groups_def = sorted(set(explode_groups_def(groups_def)))
+    if opts.verbose:
+        print(len(groups_def), len(expanded_groups_def))
+    groups = [line.split(",") for line in expanded_groups_def]
     if opts.verbose:
         for gr in expanded_groups_def:
             print(gr)
         print(groups)
         print()
 
-    dummies = []
+    observations_groups = []
     reader = read_survey()
     for i, row in enumerate(reader):
-        dummy = dummy_per_answer(row, groups, questions, questions_with_answers)
-        if dummy:
-            dummies.append(dummy)
+        result = groups_per_observation(row, groups, questions, questions_with_answers)
+        if result:
+            observations_groups.append(result)
     
-    metrics = {}
-    for dummy in dummies:
-        metric = ''
-        qa_included = []
-        for qa in dummy:
-            for grp_limit in groups:
-                if qa in grp_limit and not qa in qa_included:
-                    if len(metric) == 0:
-                        metric += qa
-                    else:
-                        metric += "," + qa
+    total_observations = i
+    
+    if opts.verbose:
+        for d in observations_groups:
+            print("dummy ->", d)
 
-                    try:
-                        metrics[metric] += 1
-                    except:
-                        metrics[metric] = 1
+    metrics = {m:0 for m in expanded_groups_def}
+    for obs_grps in observations_groups:
+        for grp_idx in obs_grps:
+            metric = expanded_groups_def[grp_idx]
+            try:
+                metrics[metric] += 1
+            except:
+                metrics[metric] = 1
 
-                    qa_included.append(qa)
+    if opts.verbose:
+        for k, v in metrics.items():
+            print(k, '=', v)
+            pairs = k.split(",")
+            question, answer = id_to_qa(pairs[len(pairs)-1], questions_with_answers)
+            print("-" * len(pairs[:-1]), question, f"Re: {answer} ->", v)
+            print("")
 
-    for k, v in sorted(metrics.items()):
-        print(k, '=', v)
+    for k, v in metrics.items():
         pairs = k.split(",")
-        question, answer = id_to_qa(pairs[len(pairs)-1], questions_with_answers)
-        print("-" * len(pairs[:-1]), question, f"Re: {answer} ->", v)
-        print("")
+        if len(pairs) > 1:
+            parent = ",".join(pairs[:-1])
+            parent_value = metrics[parent]
+            indentation = '-' * len(pairs[:-1]) + ' '
+        else:
+            parent_value = total_observations
+            indentation = ' '
 
+        question, answer = id_to_qa(pairs[len(pairs)-1], questions_with_answers)
+        portion = (v / parent_value) * 100 
+        fraction_string = f"{v}/{parent_value}"
+
+        ending_string = ''
+        if opts.verbose:
+            ending_string = f'\t[{k}]'
+
+        print(f"{indentation}{fraction_string}\t({portion:0.2f})  {question} Re: {answer}{ending_string}")
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Survey Analizer", fromfile_prefix_chars='@')
